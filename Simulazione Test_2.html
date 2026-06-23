@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Simulatore d'Esame Universitario Completo</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f4f8;
+            color: #2c3e50;
+            line-height: 1.6;
+            margin: 0;
+            padding: 15px; /* Ridotto leggermente per schermi mobile */
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .container {
+            max-width: 850px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 20px; /* Più compatto su mobile */
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        @media (min-width: 768px) {
+            .container { padding: 35px; }
+            body { padding: 20px; }
+        }
+        h1 {
+            text-align: center;
+            color: #1e3a8a;
+            margin-bottom: 5px;
+            font-size: 1.8rem;
+        }
+        .subtitle {
+            text-align: center;
+            color: #64748b;
+            margin-bottom: 25px;
+            font-size: 0.95rem;
+        }
+        .subject-block {
+            margin-bottom: 35px;
+            border-bottom: 2px dashed #e2e8f0;
+            padding-bottom: 15px;
+        }
+        .subject-block:last-of-type {
+            border-bottom: none;
+        }
+        .subject-title {
+            background-color: #1e3a8a;
+            color: white;
+            padding: 10px 15px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+        .question {
+            margin-bottom: 20px;
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #cbd5e1;
+        }
+        .question-text {
+            font-weight: 600;
+            margin-bottom: 12px;
+            font-size: 1rem;
+        }
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        label {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #ffffff;
+            padding: 12px 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            /* Ottimizzazione touch per iPhone */
+            -webkit-tap-highlight-color: transparent; 
+            user-select: none;
+        }
+        label:hover {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+        }
+        input[type="radio"] {
+            -webkit-appearance: none; /* Reset iOS standard */
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #cbd5e1;
+            border-radius: 50%;
+            outline: none;
+            background-color: #fff;
+            margin: 0;
+            display: grid;
+            place-content: center;
+            cursor: pointer;
+        }
+        input[type="radio"]::before {
+            content: "";
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            transform: scale(0);
+            transition: 120ms transform ease-in-out;
+            background-color: #2563eb;
+        }
+        input[type="radio"]:checked {
+            border-color: #2563eb;
+        }
+        input[type="radio"]:checked::before {
+            transform: scale(1);
+        }
+        button {
+            -webkit-appearance: none; /* Reset iOS */
+            display: block;
+            width: 100%;
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 16px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 30px;
+            -webkit-tap-highlight-color: transparent;
+        }
+        button:hover {
+            background: #1d4ed8;
+        }
+        button:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+            opacity: 1; /* Forza opacità su iOS */
+        }
+        #result {
+            margin-top: 30px;
+            padding: 25px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 1.25rem;
+            display: none;
+        }
+        .success {
+            background-color: #dcfce7;
+            color: #14532d;
+            border: 1px solid #bbf7d0;
+        }
+        .fail {
+            background-color: #fee2e2;
+            color: #7f1d1d;
+            border: 1px solid #fca5a5;
+        }
+        /* Classi per la correzione visiva */
+        .opt-correct {
+            background-color: #dcfce7 !important;
+            border-color: #22c55e !important;
+            color: #15803d !important;
+            font-weight: bold;
+        }
+        .opt-wrong {
+            background-color: #fee2e2 !important;
+            border-color: #ef4444 !important;
+            color: #b91c1c !important;
+            font-weight: bold;
+        }
+        /* Forza il colore del pallino interno anche quando disabilitato */
+        input[type="radio"]:disabled {
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Simulatore Esame Universitario</h1>
+    <div class="subtitle">Estrazione automatica di 6 materie e 5 domande casuali dal database.</div>
+    
+    <form id="quiz-form" onsubmit="return false;">
+        <div id="quiz-container"></div>
+        <button type="button" id="btn-submit" onclick="chk()">Invia e Calcola Punteggio</button>
+    </form>
+    
+    <div id="result"></div>
+</div>
+
+<script>
+const db = {
+    "Economia e Organizzazione d'Impresa": [
+        {q: "Quale fattore caratterizza principalmente l'era della conoscenza?", a: ["La conoscenza e le informazioni", "La terra lavorata a mano", "Il capitale macchine pesante", "La forza fisica"], c: 0},
+        {q: "Quali sono le tre macro-aree della gestione aziendale?", a: ["Finanziamento, Personale, Economicità", "Marketing, Produzione, Logistica", "Contabilità, R&S, Vendite", "Pianificazione, Qualità, Espansione"], c: 0},
+        {q: "Come viene definito l'indice di Efficienza?", a: ["Risultato ottenuto / Risorse impiegate", "Risultati ottenuti / Obiettivo iniziale", "Ricavi totali / Costi fissi", "Fatturato complessivo / Ore totali"], c: 0},
+        {q: "Che cos'è l'Efficacia aziendale?", a: ["La capacità di realizzare gli obiettivi prefissati", "La riduzione massima degli sprechi delle risorse", "Il pareggio perfetto tra costi e ricavi", "La velocità di produzione della catena di montaggio"], c: 0},
+        {q: "I finanziamenti a medio termine (MT) hanno solitamente durata?", a: ["Tra 1 e 5 anni", "Meno di 12 mesi", "Oltre i 10 anni", "Esclusivamente giornaliera"], c: 0},
+        {q: "Il capitale di rischio coincide con:", a: ["Il capitale proprio apportato dai soci", "I mutui concessi dagli istituti di credito", "I debiti contratti verso i fornitori di merci", "I finanziamenti a breve termine"], c: 0},
+        {q: "Quale problema d'impresa risponde alla scelta delle techniques produttive?", a: ["Come produrre", "Che cosa produrre", "Quanto produrre", "Per chi produrre"], c: 0},
+        {q: "Nello schema di gestione del personale, l'addestramento segue immediatamente:", a: ["La formazione", "La ricerca", "La valutazione", "L'incentivazione"], c: 0},
+        {q: "Il principio di economicità impone che:", a: ["I ricavi remunerino i fattori produttivi impiegati", "L'azienda operi sempre senza dipendenti", "I costi variabili siano azzerati", "Si richieda solo capitale di credito"], c: 0},
+        {q: "In quale era economica la 'terra' è il fattore primario?", a: ["Era agricola", "Era industriale", "Era della conoscenza", "Era digitale"], c: 0}
+    ],
+    "Diritto Commerciale": [
+        {q: "Chi è l'imprenditore secondo l'art. 2082 c.c.?", a: ["Chi esercita professionalmente un'attività economica organizzata per produzione/scambio", "Chiunque svolga un lavoro autonomo occasionale senza mezzi", "Il socio investitore di una società di capitali", "Chiunque venda beni usati su piattaforme digitali"], c: 0},
+        {q: "Quale caratteristica definisce l'autonomia patrimoniale 'perfetta'?", a: ["Il patrimonio dei soci è nettamente separato da quello la società", "I creditori personali dei soci possono pignorare i beni sociali", "I soci rispondono illimitatamente con i propri beni", "La società non possiede un patrimonio minimo"], c: 0},
+        {q: "Nelle S.a.s., i soci accomandanti hanno una responsabilità:", a: ["Limitata alla quota conferita", "Illimitata e solidale", "Sussidiaria ma illimitata ", "Nessuna responsabilità patrimoniale"], c: 0},
+        {q: "Qual è il capitale minimo richiesto per una S.p.A. ordinaria?", a: ["50.000 euro", "10.000 euro", "120.000 euro", "1.000 euro"], c: 0},
+        {q: "Quale delle seguenti è una società di persone?", a: ["Società in nome collettivo (S.n.c.)", "Società a responsabilità limitata (S.r.l.)", "Società per azioni (S.p.A.)", "Società in accomandita per azioni (S.a.p.A.)"], c: 0},
+        {q: "Cosa caratterizza l'impresa individuale?", a: ["Responsabilità illimitata del titolare", "Presenza obbligatoria di almeno tre soci", "Autonomia patrimoniale perfetta", "Obbligo di un consiglio di amministrazione"], c: 0},
+        {q: "Quale organo esprime la volontà sovrana dei soci nelle S.r.l. o S.p.A.?", a: ["L'Assemblea dei soci ", "Il Consiglio di Amministrazione", "Il Collegio Sindacale", "Il Revisore contabile"], c: 0},
+        {q: "Nella S.r.l. Unipersonale, il socio unico mantiene la responsabilità limitata se:", a: ["Versa l'intero capitale e rispetta le formalità pubblicitarie", "Non assume dipendenti esterni", "Non accumula alcun debito verso i fornitori", "Si iscrive all'albo degli artigiani"], c: 0},
+        {q: "Cosa differenzia il lavoratore autonomo dall'imprenditore?", a: ["L'assenza di una complessa organizzazione di mezzi e beni", "L'obbligo di iscrizione al registro delle grandi imprese", "La totale mancanza di rischio economico", "Il divieto di emettere fattura"], c: 0},
+        {q: "Nelle società di persone, l'autonomia patrimoniale è definita:", a: ["Imperfetta", "Perfetta", "Assoluta", "Nulla"], c: 0}
+    ],
+    "Meccanica e Fisica Generale": [
+        {q: "Cosa afferma la Legge di Hooke?", a: ["La forza elastica è direttamente proporzionale alla deformazione", "La pressione del fluido dipende dall'altezza della colonna", "L'attrito dinamico è maggiore dell'attrito statico", "Il momento di una forza è nullo al centro di massa"], c: 0},
+        {q: "Quale delle seguenti è una grandezza fondamentale del Sistema Internazionale (SI)?", a: ["Metro (Lunghezza)", "Newton (Forza)", "Joule (Energia)", "Watt (Potenza)"], c: 0},
+        {q: "L'attrito statico rispetto all'attrito dinamico per gli stessi materiali è:", a: ["Maggiore", "Minore", "Identico", "Sempre nullo"], c: 0},
+        {q: "Come si calcola il momento di una forza (M)?", a: ["Forza per braccio (F * b)", "Forza fratto superficie (F / S)", "Massa per accelerazione (m * a)", "Lavoro fratto tempo (L / t)"], c: 0},
+        {q: "Una leva di primo genere ha:", a: ["Il fulcro situato tra la forza motrice e la forza resistente", "La forza resistente situata al centro", "La forza motrice situata tra fulcro e resistenza", "Il guadagno meccanico sempre inferiore a 1"], c: 0},
+        {q: "Quale delle seguenti macchine semplici è definita basata sul piano inclinato?", a: ["La vite", "La carrucola", "La leva", "Il verricello"], c: 0},
+        {q: "Il baricentro di un corpo rigido geometrico coincide con:", a: ["Il centro di massa", "Il punto di applicazione della sola forza vincolare", "Il punto più esterno del corpo", "Il fulcro della leva"], c: 0},
+        {q: "Un'unità di misura della pressione nel Sistema Internazionale è:", a: ["Pascal", "Newton ", "Joule", "Kilogrammo"], c: 0},
+        {q: "Le reazioni vincolari sono forze che:", a: ["Impediscono a un corpo di violare un vincolo geometrico", "Accelerano il corpo in direzione del moto", "Dipendono esclusivamente dall'attrito dell'aria", "Si annullano nello spazio vuoto"], c: 0},
+        {q: "Una carrucola fissa offre un guadagno meccanico pari a:", a: ["1 (modifica solo la direzione della forza)", "2 (dimezza lo sforzo)", "0.5 (raddoppia lo sforzo)", "Variabile in base al raggio"], c: 0}
+    ],
+    "Elettronica ed Elettrotecnica": [
+        {q: "Quale diodo sfrutta l'effetto tunnel quantistico per operare ad altissime frequenze?", a: ["Diodo Tunnel", "Diodo Schottky", "Diodo LED", "Diodo Varicap"], c: 0},
+        {q: "Qual è la funzione principale di un diodo raddrizzatore standard?", a: ["Far passare la corrente in un solo senso", "Amplificare un segnale in tensione", "Accumulare energia elettrica", "Generare corrente alternata da una continua"], c: 0},
+        {q: "Il transistor BJT possiede tre terminali denominati:", a: ["Base, Collettore, Emettitore", "Anodo, Catodo, Gate", "Sorgente, Pozzetto, Porta", "Fase, Neutro, Terra"], c: 0},
+        {q: "Quando un transistor lavora come interruttore chiuso, si dice che è in:", a: ["Saturazione", "Interdizione", "Zona attiva diretta", "Breakdown"], c: 0},
+        {q: "La differenza fondamentale tra un transistor NPN e uno PNP risiede nella:", a: ["Polarità delle tensioni e direzione delle correnti", "Presenza del terminale di Gate", "Capacità di bloccare la corrente alternata", "Frequenza massima di clock"], c: 0},
+        {q: "Un diodo Schottky si caratterizza per:", a: ["Una bassissima caduta di tensione diretta e alta velocità", "La capacità di emettere luce coerente laser", "Il funzionamento in regime di valanga inversa", "La variazione della capacità parassita"], c: 0},
+        {q: "Cosa controlla il terminale Gate in un componente SCR?", a: ["L'innesco della conduzione", "La frequenza dell'oscillazione", "Il colore della luce emessa", "La capacità interna del semiconduttore"], c: 0},
+        {q: "Il diodo Varicap viene utilizzato principalmente come:", a: ["Capacità variabile controllata in tensione", "Emettitore di infrarossi", "Protezione dalle sovratensioni stabili", "Interruttore di potenza"], c: 0},
+        {q: "La tensione in corrente continua (DC) si distingue dalla alternata (AC) perché:", a: ["Mantiene polarità e direzione costanti nel tempo", "Inverte la direzione periodicamente", "Ha una frequenza fissa a 50 Hz", "Può viaggiare solo su un singolo filamento metallico"], c: 0},
+        {q: "In un fotodiodo, la corrente inversa aumenta all'aumentare di:", a: ["L'intensità luminosa incidente", "La temperatura esterna del dissipatore", "La tensione di sbarramento fissa", "La resistenza del circuito di gate"], c: 0}
+    ],
+    "Tecnico-Manutentiva e Sicurezza": [
+        {q: "Quale andamento descrive la 'Bath Tub Curve'?", a: ["Il tasso di guasto di un componente nel tempo", "Il consumo energetico di una pompa idraulica", "La deformazione elastica di una molla sotto carico", "La variazione di efficienza di un pannello solare"], c: 0},
+        {q: "La seconda fase della Bath Tub Curve è caratterizzata da:", a: ["Guasti casuali a tasso costante", "Mortalità infantile elevata", "Usura e invecchiamento rapido", "Manutenzione straordinaria preventiva"], c: 0},
+        {q: "Le linee guida ISO TR 14121-2 si riferiscono a:", a: ["Metodologie per la valutazione dei rischi meccanici", "Standard per il disegno di organigrammi", "Certificazioni di sostenibilità aziendale ESG", "Protocolli di comunicazione per robot"], c: 0},
+        {q: "Quale fase della manutenzione serve a verificare il funzionamento prima della consegna?", a: ["Collaudo", "Installazione", "Diagnostica", "Smantellamento"], c: 0},
+        {q: "La manutenzione predittiva si basa su:", a: ["Monitoraggio delle condizioni per prevedere il guasto", "Riparazione immediata dopo la rottura", "Sostituzione fissa a intervalli temporali regolari", "Ispezione visiva generica non strumentale"], c: 0},
+        {q: "Nel calcolo del rischio R = P * D, la lettera 'P' indica:", a: ["Probabilità del verificarsi del danno", "Danno potenziale massimo", "Prevenzione attuata sul macchinario", "Pericolo intrinseco del sistema"], c: 0},
+        {q: "La norma EN ISO 12100 riguarda:", a: ["La sicurezza del macchinario e i principi generali di progettazione", "La gestione contabile dei budget aziendali", "I formati di file per la stampa 3D", "I parameters dei fluidi oleodinamici"], c: 0},
+        {q: "I guasti per invecchiamento e usura si concentrano:", a: ["Nella fase finale della vita utile del componente", "Nelle prime ore di funzionamento dell'impianto", "In modo uniforme durante l'intero ciclo vitale", "Esclusivamente a causa di errori degli operatori"], c: 0},
+        {q: "Cosa si intende per 'manutenzione correttiva'?", a: ["Intervento eseguito a seguito di un guasto avvenuto", "Pianificazione preventiva dei componenti soggetti a usura", "Miglioramento strutturale per evitare modifiche future", "Analisi vibrazionale periodica del motore"], c: 0},
+        {q: "La riduzione del rischio alla fonte si ottiene tramite:", a: ["Progettazione intrinsecamente sicura", "Uso obbligatorio di DPI protettivi", "Installazione di cartelli di avviso", "Formazione teorica del personale"], c: 0}
+    ],
+    "Robotica Industriale": [
+        {q: "Quale tecnologia/brand è al centro della trattazione della robotica del file?", a: ["FANUC", "KUKA", "ABB", "Universal Robots"], c: 0},
+        {q: "In un robot industriale, i gradi di libertà (DoF) corrispondono generalmente a:", a: ["Il numero di assi o articolazioni indipendenti", "La velocità massima raggiungibile dall'utensile", "Il carico massimo espresso in chilogrammi", "La precisione millimetrica di ripetibilità"], c: 0},
+        {q: "Il dispositivo manuale utilizzato dall'operatore per programmare il robot si chiama:", a: ["Teach Pendant", "Slicer Box", "CNC Console", "Inverter Pad"], c: 0},
+        {q: "La configurazione di un robot antropomorfo ricorda la struttura di:", a: ["Un braccio umano", "Un portale cartesiano fisso", "Una struttura cilindrica rotante", "Un ragno sospeso su cavi"], c: 0},
+        {q: "Cosa indica il termine 'Payload' in robotica?", a: ["Il carico utile massimo trasportabile del robot", "La velocità di rotazione dell'asse principale", "Il codice di programmazione dei movimenti", "L'area di lavoro interdetta all'operatore"], c: 0},
+        {q: "Un sistema di coordinate utensile è definito comunemente:", a: ["Tool Center Point (TCP)", "User Frame", "World Coordinate System", "Joint System"], c: 0},
+        {q: "La ripetibilità in un robot industriale misura:", a: ["La capacità di ritornare nello stesso punto precedentemente raggiunto", "Il numero di cicli prima di un guasto meccanico", "La velocità di risposta ai comandi del controller", "Il tempo di arresto in caso di emergenza"], c: 0},
+        {q: "I sensori d'asse integrati nei motori dei robot per rilevare la posizione sono:", a: ["Encoder", "Fotodiodi tunnel", "Estensimetri a molla", "Trasformatori di isolamento"], c: 0},
+        {q: "La programmazione 'off-line' di un robot avviene:", a: ["Tramite software di simulazione su PC senza fermare la produzione", "Movimentandamente manuale gli assi del robot reale", "Inserendo comandi direttamente sul Teach Pendant in linea", "Scollegando completamente l'alimentazione elettrica"], c: 0},
+        {q: "Che tipo di attuatori sono maggiormente utilizzati nei moderni robot industriali?", a: ["Servomotori elettrici brushless", "Motori idraulici ad alta portata", "Pistoni pneumatici lineari", "Sistemi a contrappeso meccanico"], c: 0}
+    ],
+    "Fabbricazione Digitale (Makers & FabLab)": [
+        {q: "Quale software trasforma il modello 3D geometrico in istruzioni di movimento?", a: ["Lo Slicer (genera G-code)", "Il CAD paramedrico", "Il firmware della scheda madre", "Il compilatore PLC"], c: 0},
+        {q: "La tecnologia di stampa 3D a deposizione di filamento fuso è nota come:", a: ["FDM / FFF", "SLA (Stereolitografia)", "SLS (Sinterizzazione laser)", "CNC numerico"], c: 0},
+        {q: "Qual è il materiale termoplastico biodegradabile più comune nella stampa 3D?", a: ["PLA", "ABS", "Nylon", "Policarbonato"], c: 0},
+        {q: "Cosa esprime il termine 'G-code?", a: ["Il linguaggio di programmazione a controllo numerico per macchine utensili e stampanti 3D", "Il codice di sicurezza per l'accesso ai laboratori FabLab", "L'algoritmo di compressione di file grafici 3D", "Il protocollo di comunicazione wireless dei maker"], c: 0},
+        {q: "I FabLab sono definiti come:", a: ["Laboratori di fabbricazione digitale aperti al pubblico", "Centri di assemblaggio di robot FANUC ad accesso ristretto", "Uffici dedicati alla registrazione di brevetti internazionali", "Centrali idroelettriche ad accumulo automatizzato"], c: 0},
+        {q: "La lavorazione tramite fresatrice CNC è un processo:", a: ["Sottrattivo", "Additivo", "Formativo", "Chimico"], c: 0},
+        {q: "Cosa si intende per 'passaggio dai bit agli atomi'?", a: ["Tradurre un file digitale in un oggetto fisico reale", "Convertire segnali elettrici alternati in continui", "Il calcolo dei materiali tramite il criterio ESG", "L'analisi molecolare dei polimeri plastici"], c: 0},
+        {q: "L'orditura di riempimento interno di un oggetto stampato in 3D si chiama:", a: ["Infill", "Skirt", "Raft", "Support"], c: 0},
+        {q: "Quale materiale richiede un piano di stampa molto caldo a causa della forte ritrazione (warping)?", a: ["ABS", "PLA", "PETG", "Cioccolato"], c: 0},
+        {q: "Il formato file standard esportato dai software CAD per essere letto dallo slicer è:", a: ["STL", "GCODE", "PDF", "DOCX"], c: 0}
+    ],
+    "Oleodinamica": [
+        {q: "Quale parametro determina direttamente la velocità di un attuatore oleodinamico?", a: ["La portata del fluido (Q)", "La pressione massima del sistema (P)", "La viscosità dell'olio impiegato", "Il diametro esterno delle tubazioni"], c: 0},
+        {q: "La pressione in un circuito oleodinamico si genera come conseguenza di:", a: ["Una resistenza al flusso del fluido", "La sola velocità di rotazione della pompa a vuoto", "La lunghezza complessiva del tubo di scarico", "La temperatura dell'ambiente di lavoro"], c: 0},
+        {q: "Qual è l'unità di misura pratica comunemente usata per la pressione nei circuiti idraulici?", a: ["Bar", "Litro al minuto", "Watt ", "Hertz"], c: 0},
+        {q: "La funzione principale di una valvola di massima pressione è:", a: ["Proteggere il circuito limitando la pressione massima", "Regolare la velocità del pistone in uscita", "Invertire la direzione del moto del motore idraulico", "Filtrare le impurità solide dell'olio"], c: 0},
+        {q: "Le pompe oleodinamiche sono macchine che convertono:", a: ["Energia meccanica in energia idraulica", "Energia termica in pressione statica", "Energia elettrica in segnali digitali", "Energia potenziale in calore"], c: 0},
+        {q: "Cosa esprime la cilindrata di una pompa?", a: ["Il volume di fluido spostato ad ogni giro completo della pompa", "La massima pressione sopportabile dai componenti interni", "La velocità angolare massima dell'albero motore", "La quantità di calore dissipata dal serbatoio"], c: 0},
+        {q: "Un attuatore lineare oleodinamico è comunemente chiamato:", a: ["Cilindro idraulico", "Motore orbitale", "Accumulatore a sacca", "Distributore a leva"], c: 0},
+        {q: "La legge fisica alla base dell'oleodinamica è:", a: ["Principio di Pascal", "Legge di Hooke", "Effetto Tunnel", "Ciclo di Carnot"], c: 0},
+        {q: "Nei sistemi oleodinamici, il fluido impiegato funge anche da:", a: ["Lubrificante e mezzo di raffreddamento", "Isolante elettrico per il Gate", "Combustibile secondario per il motore", "Reagente chimico anti-usura"], c: 0},
+        {q: "I distributori idraulici servono a:", a: ["Indirizzare il flusso del fluido verso i diversi rami del circuito", "Incrementare la portata totale del sistema", "Misurare la temperatura dell'olio nel serbatoio", "Stabilizzare la tensione di alimentazione"], c: 0}
+    ],
+    "Ingegneria Energetica e Rinnovabili": [
+        {q: "Quale centrale idroelettrica permette il ripompaggio dell'acqua durante la notte?", a: ["Centrale ad accumulo (o pompaggio)", "Centrale ad acqua fluente", "Centrale mareomotrice a flusso continuo", "Centrale a bacino semplice senza turbine invertibili"], c: 0},
+        {q: "L'energia eolica converte l'energia cinetica del vento in energia elettrica tramite:", a: ["Aerogeneratori (turbine eoliche)", "Pannelli termofotovoltaici", "Pompe di calore a circuito chiuso", "Inverter a inseguimento di stringa"], c: 0},
+        {q: "Cosa si intende per biomasse in campo energetico?", a: ["Sostanze di origine organica utilizzabili come combustibili", "Rifiuti plastici industriali non riciclabili", "Materiali radioattivi esausti derivati dal nucleare", "I filamenti di PLA usati nei FabLab"], c: 0},
+        {q: "L'energia geotermica sfrutta:", a: ["Il calore naturale proveniente dall'interno della Terra", "Le correnti sottomarine delle coste oceaniche", "La radiazione solare riflessa da specchi parabolici", "La combustione di gas metano biologico"], c: 0},
+        {q: "Quale reazione nucleare è alla base delle attuali centrali elettriche commerciali?", a: ["Fissione nucleare", "Fusione nucleare calda", "Decadimento alfa spontaneo controllato", "Sgretolamento magnetico degli atomi"], c: 0},
+        {q: "La rete elettrica di trasmissione ad altissima tensione in Italia è gestita da:", a: ["Terna", "Enel Distribuzione", "GSE", "ENI "], c: 0},
+        {q: "Il grande svantaggio delle fonti rinnovabili come fotovoltaico è:", a: ["La non programmabilità e l'intermittenza", "L'emissione elevata di gas serra", "Il costo infinito delle materie prime", "L'esaurimento rapido della fonte"], c: 0},
+        {q: "Cosa si intende per transizione energetica?", a: ["Il passaggio da un mix basato sui combustibili fossili alle fonti rinnovabili", "Il trasferimento di energia tra due nazioni", "La trasformazione della corrente continua in alternata", "L'acquisto di quote di emissione CO2"], c: 0},
+        {q: "Le centrali idroelettriche ad acqua fluente sfruttano:", a: ["La portata naturale del fiume senza grandi bacini", "Il salto d'acqua artificiale superiore a 1000 metri", "Il movimento delle maree e delle onde", "Il calore dell'acqua termale sotterranea"], c: 0},
+        {q: "Qual è il componente che trasforma la radiazione solare direttamente in elettricità?", a: ["La cella fotovoltaica a semiconduttore", "Il collettore solare termico", "L'inverter di stringa", "Il generatore sincrono"], c: 0}
+    ],
+    "Termodinamica e Sistemi Energetici": [
+        {q: "Quale acronimo indica il software europeo per stimare la produzione fotovoltaica?", a: ["PVGIS", "CAD-CAM", "ISO-TR", "FANUC-LINK"], c: 0},
+        {q: "Il coefficiente di prestazione delle pompe di calore è:", a: ["COP", "EER", "EFF", "ETA"], c: 0},
+        {q: "Un inverter in un impianto fotovoltaico ha la funzione di:", a: ["Trasformare la corrente continua in alternata", "Regolare la pressione del fluido", "Spostare l'orientamento dei pannelli", "Accumulare l'energia elettrica"], c: 0},
+        {q: "Cosa si intende per 'Doppia Materialità' secondo le norme CSRD?", a: ["L'impatto dell'azienda sul mondo e l'influenza dei fattori esterni", "L'obbligo di certificare sia il bilancio sia i registri IVA", "La verifica dei parametri di efficacia e efficienza", "La misurazione separata delle emissioni"], c: 0},
+        {q: "I criteri ESG valutano:", a: ["Environmental, Social, Governance", "Economic, Sustainability, Growth", "Ecology, Safety, Globalism", "Efficiency, Standard, Quality"], c: 0},
+        {q: "Quale approccio a 5 fasi risolve problemi complessi mettendo al centro l'uomo?", a: ["Design Thinking", "Bath Tub Analysis", "Metodo delle Reazioni", "Pianificazione del Budget"], c: 0},
+        {q: "Un impianto fotovoltaico connesso alla rete è:", a: ["Grid-tied (o On-grid)", "Stand-alone (o Off-grid)", "Isolato a batteria", "Inverter ibrido puro"], c: 0},
+        {q: "Nelle pompe di calore, il calore viene:", a: ["Trasferito da un ambiente più freddo a uno più caldo", "Generato esclusivamente tramite resistenza", "Estratto dalla combustione di biomasse", "Distrutto per bilanciare l'entropia"], c: 0},
+        {q: "Cosa indica una 'stringa' in un impianto fotovoltaico?", a: ["Un insieme di moduli collegati in serie", "Il cavo di collegamento tra l'inverter e la rete", "Il software di monitoraggio", "La struttura metallica di supporto"], c: 0},
+        {q: "La direttiva CSRD del 2024 ha esteso l'obbligo di:", a: ["Il Bilancio di Sostenibilità", "Lo Statuto societario", "Il registro dei robot", "Il calcolo del BEP"], c: 0}
+    ],
+    "Inglese Tecnico (Business English)": [
+        {q: "Nelle trattative commerciali, il termine 'Minimum Order' indica:", a: ["La quantità minima di merce acquistabile", "Il prezzo più basso applicabile", "I tempi previsti per la consegna", "Le modalità di pagamento accettate"], c: 0},
+        {q: "Nella struttura di una presentazione, la frase 'Let's move on to...' serve per:", a: ["Introdurre una transizione a un nuovo argomento", "Iniziare la presentazione introducendo se stessi", "Fornire un esempio pratico", "Concludere e riassumere"], c: 0},
+        {q: "Qual è la durata legale standard di un brevetto (Patent)?", a: ["20 anni", "5 anni", "10 anni", "Illimitata"], c: 0},
+        {q: "Il termine 'Discounts' nelle trattative indica:", a: ["Riduzioni di prezzo per incentivare acquisti", "Le tempistiche massime di consegna", "Le specifiche tecniche di un pezzo", "Le sanzioni applicate"], c: 0},
+        {q: "Cosa si intende per 'Terms of Payment'?", a: ["Le modalità e le tempistiche di pagamento", "La valuta estera obbligatoria", "Le tasse doganali applicate", "Il costo totale dell'assicurazione"], c: 0},
+        {q: "Per concludere una presentazione aziendale si può dire:", a: ["I'll sum up by saying that...", "I'm going to tell you about...", "Let me show you an example of...", "Can you sign the minimum order?"], c: 0},
+        {q: "Il Trattato che semplifica la registrazione dei brevetti è:", a: ["PCT (Patent Cooperation Treaty)", "ESG Standard Agreement", "CSRD European Directive", "G-code Universal Protocol"], c: 0},
+        {q: "Quanto tempo richiede l'ottenimento di un brevetto?", a: ["Da 1 a 3 anni", "Meno di un mese", "Esattamente 10 anni", "Viene rilasciato istantaneamente"], c: 0},
+        {q: "Nelle negoziazioni, il termine 'Delivery Time' esprime:", a: ["I tempi di consegna previsti", "L'orario di apertura degli uffici", "La durata della garanzia legale", "Il tempo impiegato per un prototipo"], c: 0},
+        {q: "La frase iniziale di una presentazione 'I'm going to tell you about...' serve a:", a: ["Introdurre l'argomento principale", "Chiedere uno sconto", "Mostrare un prototipo", "Ringraziare il Consiglio"], c: 0}
+    ]
+};
+
+const selected = [];
+
+function sf(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+
+function go() {
+    const c = document.getElementById('quiz-container');
+    c.innerHTML = '';
+    selected.length = 0;
+    
+    const subs = Object.keys(db);
+    sf(subs);
+    const chosen = subs.slice(0, 6);
+    let gIdx = 0;
+    
+    chosen.forEach(s => {
+        const b = document.createElement('div');
+        b.className = 'subject-block';
+        const t = document.createElement('div');
+        t.className = 'subject-title';
+        t.innerText = s;
+        b.appendChild(t);
+        
+        const qs = [...db[s]];
+        sf(qs);
+        const cq = qs.slice(0, 5);
+        
+        cq.forEach(qD => {
+            const origC = qD.a[qD.c];
+            const opts = [...qD.a];
+            sf(opts);
+            const newC = opts.indexOf(origC);
+            
+            selected.push({correct: newC, name: `q-${gIdx}`});
+            
+            const qDiv = document.createElement('div');
+            qDiv.className = 'question';
+            const qT = document.createElement('div');
+            qT.className = 'question-text';
+            qT.innerText = `${gIdx + 1}. ${qD.q}`;
+            qDiv.appendChild(qT);
+            
+            const oDiv = document.createElement('div');
+            oDiv.className = 'options';
+            
+            opts.forEach((o, oI) => {
+                const l = document.createElement('label');
+                l.id = `lbl-${gIdx}-${oI}`;
+                
+                // Fix iOS: Aggiunge una funzione vuota al tocco per forzare la reattività delle label
+                l.setAttribute('onclick', 'void(0)');
+                
+                const r = document.createElement('input');
+                r.type = 'radio';
+                r.name = `q-${gIdx}`;
+                r.value = oI;
+                
+                l.appendChild(r);
+                l.appendChild(document.createTextNode(o));
+                oDiv.appendChild(l);
+            });
+            
+            qDiv.appendChild(oDiv);
+            b.appendChild(qDiv);
+            gIdx++;
+        });
+        c.appendChild(b);
+    });
+}
+
+function chk() {
+    let score = 0;
+    
+    // Disabilita tutti gli input radio per impedire modifiche
+    const inputs = document.querySelectorAll('input[type="radio"]');
+    inputs.forEach(i => i.disabled = true);
+    
+    // Disabilita i clic sulle label
+    const labels = document.querySelectorAll('label');
+    labels.forEach(l => l.style.pointerEvents = 'none');
+    
+    // Disabilita il pulsante di invio
+    document.getElementById('btn-submit').disabled = true;
+    
+    // Controlla e colora le risposte
+    for (let i = 0; i < 30; i++) {
+        const rs = document.getElementsByName(`q-${i}`);
+        let val = -1;
+        for (const r of rs) {
+            if (r.checked) {
+                val = parseInt(r.value);
+                break;
+            }
+        }
+        
+        const corrIdx = selected[i].correct;
+        
+        if (val === corrIdx) {
+            score++;
+            const cL = document.getElementById(`lbl-${i}-${corrIdx}`);
+            if (cL) cL.classList.add('opt-correct');
+        } else {
+            if (val !== -1) {
+                const wL = document.getElementById(`lbl-${i}-${val}`);
+                if (wL) wL.classList.add('opt-wrong');
+            }
+            const cL = document.getElementById(`lbl-${i}-${corrIdx}`);
+            if (cL) cL.classList.add('opt-correct');
+        }
+    }
+    
+    const rDiv = document.getElementById('result');
+    rDiv.style.display = 'block';
+    
+    if (score >= 18) {
+        rDiv.className = 'success';
+        rDiv.innerHTML = `🎓 Esame Superato!<br>Risposte esatte: <strong>${score}</strong> su 30.<br>Punteggio: <strong>${score}/30</strong>`;
+    } else {
+        rDiv.className = 'fail';
+        rDiv.innerHTML = `📚 Non superato.<br>Risposte esatte: <strong>${score}</strong> su 30.<br>Punteggio: <strong>${score}/30</strong>`;
+    }
+    
+    rDiv.scrollIntoView({behavior: 'smooth'});
+}
+
+window.onload = go;
+</script>
+</body>
+</html>
